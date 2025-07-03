@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.uptimerobot-monitor" path="/org/gnome/shell/extensions/uptimerobot-monitor/">
+    <key name="api-key" type="s">
+      <default>''</default>
+      <summary>UptimeRobot API Key</summary>
+      <description>API Key for the UptimeRobot service</description>
+    </key>
+  </schema>
+</schemalist>
