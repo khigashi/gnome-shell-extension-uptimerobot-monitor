@@ -223,55 +223,60 @@ export default class UptimeRobotExtension extends Extension {
             GLib.PRIORITY_DEFAULT,
             null,
             (session, result) => {
+                let bytes;
                 try {
-                    const bytes = session.send_and_read_finish(result);
-                    const decoder = new TextDecoder('utf-8');
-                    const data = decoder.decode(bytes.get_data());
-                    
-                    if (!data || data.trim() === '') {
-                        console.log('UptimeRobot Monitor: Empty response received from API');
-                        callback(null);
-                        return;
-                    }
-                    let response;
-                    try {
-                        if (data.includes('Rate limit exceeded, retry in')) {
-                            const waitTimeMatch = data.match(/retry in (\d+) seconds/);
-                            if (waitTimeMatch && waitTimeMatch[1]) {
-                                const waitTimeSeconds = parseInt(waitTimeMatch[1]);
-                                console.log(`UptimeRobot Monitor: Rate limit exceeded. Will wait ${waitTimeSeconds} seconds as suggested by API`);
-                                callback({
-                                    rateLimit: true,
-                                    waitSeconds: waitTimeSeconds
-                                });
-                                return;
-                            }
-                        }
-                        
-                        response = JSON.parse(data);
-                    } catch (parseError) {
-                        console.log(`UptimeRobot Monitor: Error: Invalid JSON response from API. Data received: ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}`);
-                        console.log(`UptimeRobot Monitor: JSON Parse Error: ${parseError}`);
-                        callback(null);
-                        return;
-                    }
-                    
-                    if (message.status_code !== 200) {
-                        console.log(`UptimeRobot Monitor: HTTP Error ${message.status_code}: ${message.reason_phrase}`);
-                        callback(null);
-                        return;
-                    }
-                    if (response.stat !== 'ok') {
-                        console.log(`UptimeRobot Monitor: API Error: ${response.error ? response.error.message : 'Unknown error'}`);
-                        callback(null);
-                        return;
-                    }
-                    
-                    callback(response);
+                    bytes = session.send_and_read_finish(result);
                 } catch (e) {
-                    console.log(`UptimeRobot Monitor: Error: ${e}`);
+                    console.log(`UptimeRobot Monitor: Error reading HTTP response: ${e}`);
                     callback(null);
+                    return;
                 }
+                
+                const decoder = new TextDecoder('utf-8');
+                const data = decoder.decode(bytes.get_data());
+                
+                if (!data || data.trim() === '') {
+                    console.log('UptimeRobot Monitor: Empty response received from API');
+                    callback(null);
+                    return;
+                }
+                
+                if (data.includes('Rate limit exceeded, retry in')) {
+                    const waitTimeMatch = data.match(/retry in (\d+) seconds/);
+                    if (waitTimeMatch && waitTimeMatch[1]) {
+                        const waitTimeSeconds = parseInt(waitTimeMatch[1]);
+                        console.log(`UptimeRobot Monitor: Rate limit exceeded. Will wait ${waitTimeSeconds} seconds as suggested by API`);
+                        callback({
+                            rateLimit: true,
+                            waitSeconds: waitTimeSeconds
+                        });
+                        return;
+                    }
+                }
+                
+                let response;
+                try {
+                    response = JSON.parse(data);
+                } catch (parseError) {
+                    console.log(`UptimeRobot Monitor: Error: Invalid JSON response from API. Data received: ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}`);
+                    console.log(`UptimeRobot Monitor: JSON Parse Error: ${parseError}`);
+                    callback(null);
+                    return;
+                }
+                
+                if (message.status_code !== 200) {
+                    console.log(`UptimeRobot Monitor: HTTP Error ${message.status_code}: ${message.reason_phrase}`);
+                    callback(null);
+                    return;
+                }
+                
+                if (response.stat !== 'ok') {
+                    console.log(`UptimeRobot Monitor: API Error: ${response.error ? response.error.message : 'Unknown error'}`);
+                    callback(null);
+                    return;
+                }
+                
+                callback(response);
             }
         );
     }
@@ -526,14 +531,17 @@ export default class UptimeRobotExtension extends Extension {
                     `${downSites.length} site(s) are currently offline: ${downSites.map(m => m.friendlyName).join(', ')}`;
                 
                 console.log(`UptimeRobot Monitor: Showing notification - ${title}: ${message}`);
-                this._showNotification(title, message);
+                const iconPath = `${this.path}/icons/status-down.svg`;
+                this._showNotification(title, message, iconPath);
                 
                 this._configureRetry();
             } else if (hasStatusChanged) {
                 console.log('UptimeRobot Monitor: Showing notification - All sites online');
+                const iconPath = `${this.path}/icons/status-up.svg`;
                 this._showNotification(
                     'All sites are online!', 
-                    'All your monitored sites are now online.'
+                    'All your monitored sites are now online.',
+                    iconPath
                 );
             }
         }
@@ -566,10 +574,23 @@ export default class UptimeRobotExtension extends Extension {
         });
     }
 
-    _showNotification(title, message) {
+    _createNotificationIcon(iconPath) {
+        if (iconPath && GLib.file_test(iconPath, GLib.FileTest.EXISTS)) {
+            const file = Gio.File.new_for_path(iconPath);
+            return new Gio.FileIcon({file: file});
+        }
+        
+        return new St.Icon({
+            icon_name: 'dialog-information-symbolic',
+            style_class: 'system-status-icon'
+        });
+    }
+    
+    _showNotification(title, message, iconPath = null) {
+        const icon = this._createNotificationIcon(iconPath);
         const source = new MessageTray.Source({
             title: 'UptimeRobot Monitor',
-            iconName: 'dialog-information-symbolic'
+            icon: icon
         });
         Main.messageTray.add(source);
         
@@ -577,7 +598,13 @@ export default class UptimeRobotExtension extends Extension {
             source: source,
             title: title,
             body: message,
-            isTransient: false
+            gicon: icon,
+            isTransient: false,
+            urgency: MessageTray.Urgency.CRITICAL
+        });
+        
+        notification.addAction('UptimeRobot Dashboard', () => {
+            Gio.AppInfo.launch_default_for_uri('https://uptimerobot.com/dashboard', null);
         });
         source.addNotification(notification);
     }

@@ -30,18 +30,7 @@ export default class UptimeRobotPreferences extends ExtensionPreferences {
         
         const helpRow = new Adw.ActionRow({
             title: 'Get your API Key',
-            subtitle: 'You need an API Key from UptimeRobot API v2. Find it in Integrations & API > API',
-            activatable: true,
-        });
-        
-        const helpIcon = new Gtk.Image({
-            icon_name: 'web-browser-symbolic',
-            pixel_size: 16
-        });
-        helpRow.add_suffix(helpIcon);
-        
-        helpRow.connect('activated', () => {
-            Gtk.show_uri(window, 'https://dashboard.uptimerobot.com/integrations', Gtk.get_current_event_time());
+            subtitle: 'Login to your UptimeRobot dashboard, then go to My Settings > API Settings to generate or find your API key.'
         });
         
         group.add(helpRow);

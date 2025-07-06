@@ -1,7 +1,7 @@
 {
   "name": "UptimeRobot Monitor",
   "description": "Monitor your UptimeRobot websites status",
-  "uuid": "uptimerobot-monitor@gnome-extension",
+  "uuid": "uptimerobot-monitor@khigashi",
   "shell-version": ["46", "47", "48"],
   "url": "https://github.com/khigashi/gnome-shell-extension-uptimerobot-monitor",
   "version": 1,
