@@ -55,26 +55,18 @@ export default class UptimeRobotExtension extends Extension {
     }
 
     disable() {
-        log('UptimeRobot Monitor: Disabling extension');
+        console.log('UptimeRobot Monitor: Disabling extension');
         
         this._clearAllTimeouts();
         this._disconnectSettings();
         
         if (this._httpSession) {
-            try {
-                this._httpSession.abort();
-            } catch (e) {
-                log(`UptimeRobot Monitor: Error aborting HTTP session: ${e}`);
-            }
+            this._httpSession.abort();
             this._httpSession = null;
         }
 
         if (this._indicator) {
-            try {
-                this._indicator.destroy();
-            } catch (e) {
-                log(`UptimeRobot Monitor: Error destroying indicator: ${e}`);
-            }
+            this._indicator.destroy();
             this._indicator = null;
         }
 
@@ -84,7 +76,7 @@ export default class UptimeRobotExtension extends Extension {
         this._isCheckingStatus = false;
         this._apiKeyValid = false;
         
-        log('UptimeRobot Monitor: Extension disabled successfully');
+        console.log('UptimeRobot Monitor: Extension disabled successfully');
     }
     
     _clearAllTimeouts() {
@@ -115,7 +107,7 @@ export default class UptimeRobotExtension extends Extension {
 
         this._dashboardItem = new PopupMenu.PopupMenuItem('Open UptimeRobot Dashboard');
         this._dashboardItem.connect('activate', () => {
-            Util.spawn(['xdg-open', 'https://uptimerobot.com/dashboard']);
+            Gio.AppInfo.launch_default_for_uri('https://uptimerobot.com/dashboard', null);
         });
         this._indicator.menu.addMenuItem(this._dashboardItem);
         
@@ -137,7 +129,7 @@ export default class UptimeRobotExtension extends Extension {
     _initSettings() {
         this._settings = this.getSettings();
         this._settingsChangedId = this._settings.connect('changed::api-key', () => {
-            log('UptimeRobot Monitor: API key changed, updating status');
+            console.log('UptimeRobot Monitor: API key changed, updating status');
             this._validateApiKey();
             this._checkStatus();
         });
@@ -165,12 +157,12 @@ export default class UptimeRobotExtension extends Extension {
                            apiKey.length > 10 && 
                            /^[a-zA-Z0-9_-]+$/.test(apiKey);
         
-        log(`UptimeRobot Monitor: API key validation result: ${this._apiKeyValid}`);
+        console.log(`UptimeRobot Monitor: API key validation result: ${this._apiKeyValid}`);
     }
 
     _checkStatus() {
         if (this._isCheckingStatus) {
-            log('UptimeRobot Monitor: Status check already in progress, skipping');
+            console.log('UptimeRobot Monitor: Status check already in progress, skipping');
             return;
         }
         
@@ -179,7 +171,7 @@ export default class UptimeRobotExtension extends Extension {
         this._validateApiKey();
         
         if (!this._apiKeyValid) {
-            log('UptimeRobot Monitor: Invalid or missing API key, setting error status');
+            console.log('UptimeRobot Monitor: Invalid or missing API key, setting error status');
             this._setIconStatus(STATUS.ERROR);
             this._updateMenuForInvalidApiKey();
             this._isCheckingStatus = false;
@@ -188,7 +180,7 @@ export default class UptimeRobotExtension extends Extension {
         }
         
         const apiKey = this._settings.get_string('api-key');
-        log('UptimeRobot Monitor: Checking status with valid API key');
+        console.log('UptimeRobot Monitor: Checking status with valid API key');
         
 
         this._makeRequest(apiKey, (response) => {
@@ -200,9 +192,9 @@ export default class UptimeRobotExtension extends Extension {
             }
             
             if (response) {
-                log(`UptimeRobot Monitor: API response received: ${JSON.stringify(response)}`);
+                console.log(`UptimeRobot Monitor: API response received: ${JSON.stringify(response)}`);
             } else {
-                log('UptimeRobot Monitor: API request failed - no response received');
+                console.log('UptimeRobot Monitor: API request failed - no response received');
             }
             
             if (!response || response.stat !== 'ok' || !response.monitors || !Array.isArray(response.monitors)) {
@@ -237,7 +229,7 @@ export default class UptimeRobotExtension extends Extension {
                     const data = decoder.decode(bytes.get_data());
                     
                     if (!data || data.trim() === '') {
-                        log('UptimeRobot Monitor: Empty response received from API');
+                        console.log('UptimeRobot Monitor: Empty response received from API');
                         callback(null);
                         return;
                     }
@@ -247,7 +239,7 @@ export default class UptimeRobotExtension extends Extension {
                             const waitTimeMatch = data.match(/retry in (\d+) seconds/);
                             if (waitTimeMatch && waitTimeMatch[1]) {
                                 const waitTimeSeconds = parseInt(waitTimeMatch[1]);
-                                log(`UptimeRobot Monitor: Rate limit exceeded. Will wait ${waitTimeSeconds} seconds as suggested by API`);
+                                console.log(`UptimeRobot Monitor: Rate limit exceeded. Will wait ${waitTimeSeconds} seconds as suggested by API`);
                                 callback({
                                     rateLimit: true,
                                     waitSeconds: waitTimeSeconds
@@ -258,26 +250,26 @@ export default class UptimeRobotExtension extends Extension {
                         
                         response = JSON.parse(data);
                     } catch (parseError) {
-                        log(`UptimeRobot Monitor: Error: Invalid JSON response from API. Data received: ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}`);
-                        log(`UptimeRobot Monitor: JSON Parse Error: ${parseError}`);
+                        console.log(`UptimeRobot Monitor: Error: Invalid JSON response from API. Data received: ${data.substring(0, 100)}${data.length > 100 ? '...' : ''}`);
+                        console.log(`UptimeRobot Monitor: JSON Parse Error: ${parseError}`);
                         callback(null);
                         return;
                     }
                     
                     if (message.status_code !== 200) {
-                        log(`UptimeRobot Monitor: HTTP Error ${message.status_code}: ${message.reason_phrase}`);
+                        console.log(`UptimeRobot Monitor: HTTP Error ${message.status_code}: ${message.reason_phrase}`);
                         callback(null);
                         return;
                     }
                     if (response.stat !== 'ok') {
-                        log(`UptimeRobot Monitor: API Error: ${response.error ? response.error.message : 'Unknown error'}`);
+                        console.log(`UptimeRobot Monitor: API Error: ${response.error ? response.error.message : 'Unknown error'}`);
                         callback(null);
                         return;
                     }
                     
                     callback(response);
                 } catch (e) {
-                    log(`UptimeRobot Monitor: Error: ${e}`);
+                    console.log(`UptimeRobot Monitor: Error: ${e}`);
                     callback(null);
                 }
             }
@@ -335,7 +327,7 @@ export default class UptimeRobotExtension extends Extension {
                 downMonitors.forEach(monitor => {
                     const item = new PopupMenu.PopupMenuItem(`🔴 ${monitor.friendlyName}`);
                     item.connect('activate', () => {
-                        Util.spawn(['xdg-open', monitor.url]);
+                        Gio.AppInfo.launch_default_for_uri(monitor.url, null);
                     });
                     this._monitorSection.addMenuItem(item);
                 });
@@ -365,22 +357,13 @@ export default class UptimeRobotExtension extends Extension {
         
         const prefsItem = new PopupMenu.PopupMenuItem('Open Preferences');
         prefsItem.connect('activate', () => {
-            try {
-                Util.spawn(['gnome-extensions', 'prefs', this.metadata.uuid]);
-            } catch (e) {
-                log(`UptimeRobot Monitor: Error opening preferences: ${e}`);
-                try {
-                    Util.spawn(['gnome-shell-extension-prefs', this.metadata.uuid]);
-                } catch (e2) {
-                    log(`UptimeRobot Monitor: Error opening preferences (fallback): ${e2}`);
-                }
-            }
+            this.openPreferences();
         });
         this._monitorSection.addMenuItem(prefsItem);
         
         const helpItem = new PopupMenu.PopupMenuItem('How to get API key');
         helpItem.connect('activate', () => {
-            Util.spawn(['xdg-open', 'https://uptimerobot.com/dashboard#mySettings']);
+            Gio.AppInfo.launch_default_for_uri('https://uptimerobot.com/dashboard#mySettings', null);
         });
         this._monitorSection.addMenuItem(helpItem);
     }
@@ -434,8 +417,12 @@ export default class UptimeRobotExtension extends Extension {
         const normalIconPath = this.path + '/icons/status-down.svg';
         const fadeIconPath = this.path + '/icons/status-down-fade.svg';
         if (!this._iconFileExists(normalIconPath) || !this._iconFileExists(fadeIconPath)) {
-            log('UptimeRobot Monitor: Icon files not found, skipping animation');
+            console.log('UptimeRobot Monitor: Icon files not found, skipping animation');
             return;
+        }
+        
+        if (this._pulseAnimationId) {
+            GLib.Source.remove(this._pulseAnimationId);
         }
         
         this._pulseAnimationId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 800, () => {
@@ -466,13 +453,8 @@ export default class UptimeRobotExtension extends Extension {
     }
 
     _iconFileExists(iconPath) {
-        try {
-            const file = Gio.File.new_for_path(iconPath);
-            return file.query_exists(null);
-        } catch (e) {
-            log(`UptimeRobot Monitor: Error checking icon file: ${e}`);
-            return false;
-        }
+        const file = Gio.File.new_for_path(iconPath);
+        return file.query_exists(null);
     }
 
     _clearRetryTimeout() {
@@ -483,12 +465,14 @@ export default class UptimeRobotExtension extends Extension {
     }
 
     _handleRateLimit(waitSeconds) {
-        log(`UptimeRobot Monitor: Rate limit detected. Waiting for ${waitSeconds} seconds before retrying`);
+        console.log(`UptimeRobot Monitor: Rate limit detected. Waiting for ${waitSeconds} seconds before retrying`);
         this._setIconStatus(STATUS.ERROR);
         this._isCheckingStatus = false;
         
+        this._clearRetryTimeout();
+        
         this._retryTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, waitSeconds, () => {
-            log('UptimeRobot Monitor: Retrying after rate limit wait period');
+            console.log('UptimeRobot Monitor: Retrying after rate limit wait period');
             this._checkStatus();
             return GLib.SOURCE_REMOVE;
         });
@@ -496,7 +480,7 @@ export default class UptimeRobotExtension extends Extension {
 
     _handleApiError(response) {
         const errorMsg = response && response.error ? response.error.message : 'Unknown error';
-        log(`UptimeRobot Monitor: API Error: ${errorMsg}`);
+        console.log(`UptimeRobot Monitor: API Error: ${errorMsg}`);
         this._setIconStatus(STATUS.ERROR);
         
         this._retryCount = 0;
@@ -506,37 +490,32 @@ export default class UptimeRobotExtension extends Extension {
     }
 
     _processMonitors(monitors) {
-        try {
-            const processedMonitors = monitors.map(monitor => ({
-                ...monitor,
-                status: this._mapStatusCode(monitor.status),
-                friendlyName: monitor.friendly_name
-            }));
-            
-            const activeMonitors = processedMonitors.filter(monitor => monitor.status !== STATUS.PAUSED);
-            let newStatus = STATUS.UP;
-            if (activeMonitors.some(monitor => monitor.status === 'DOWN')) {
-                newStatus = STATUS.DOWN;
-            }
-            
-            this._setIconStatus(newStatus);
-            this._lastUpdateTime = new Date();
-            this._updateMenu(processedMonitors);
-            this._handleStatusChange(newStatus, activeMonitors);
-            this._previousStatus = newStatus;
-            this._isCheckingStatus = false;
-            this._scheduleNextCheck();
-        } catch (e) {
-            log(`UptimeRobot Monitor: Error processing monitors: ${e}`);
-            this._handleApiError(null);
+        const processedMonitors = monitors.map(monitor => ({
+            ...monitor,
+            status: this._mapStatusCode(monitor.status),
+            friendlyName: monitor.friendly_name
+        }));
+        
+        const activeMonitors = processedMonitors.filter(monitor => monitor.status !== STATUS.PAUSED);
+        let newStatus = STATUS.UP;
+        if (activeMonitors.some(monitor => monitor.status === 'DOWN')) {
+            newStatus = STATUS.DOWN;
         }
+        
+        this._setIconStatus(newStatus);
+        this._lastUpdateTime = new Date();
+        this._updateMenu(processedMonitors);
+        this._handleStatusChange(newStatus, activeMonitors);
+        this._previousStatus = newStatus;
+        this._isCheckingStatus = false;
+        this._scheduleNextCheck();
     }
 
     _handleStatusChange(newStatus, activeMonitors) {
         const isFirstLoad = this._previousStatus === null;
         const hasStatusChanged = this._previousStatus !== null && this._previousStatus !== newStatus;
         
-        log(`UptimeRobot Monitor: isFirstLoad=${isFirstLoad}, hasStatusChanged=${hasStatusChanged}, newStatus=${newStatus}, previousStatus=${this._previousStatus}`);
+        console.log(`UptimeRobot Monitor: isFirstLoad=${isFirstLoad}, hasStatusChanged=${hasStatusChanged}, newStatus=${newStatus}, previousStatus=${this._previousStatus}`);
         
         if (hasStatusChanged || (isFirstLoad && newStatus === STATUS.DOWN)) {
             if (newStatus === STATUS.DOWN) {
@@ -546,12 +525,12 @@ export default class UptimeRobotExtension extends Extension {
                     `Found ${downSites.length} site(s) currently offline: ${downSites.map(m => m.friendlyName).join(', ')}` :
                     `${downSites.length} site(s) are currently offline: ${downSites.map(m => m.friendlyName).join(', ')}`;
                 
-                log(`UptimeRobot Monitor: Showing notification - ${title}: ${message}`);
+                console.log(`UptimeRobot Monitor: Showing notification - ${title}: ${message}`);
                 this._showNotification(title, message);
                 
                 this._configureRetry();
             } else if (hasStatusChanged) {
-                log('UptimeRobot Monitor: Showing notification - All sites online');
+                console.log('UptimeRobot Monitor: Showing notification - All sites online');
                 this._showNotification(
                     'All sites are online!', 
                     'All your monitored sites are now online.'
@@ -563,13 +542,15 @@ export default class UptimeRobotExtension extends Extension {
     _configureRetry() {
         if (this._retryCount < MAX_RETRIES) {
             this._retryCount++;
+            this._clearRetryTimeout();
+            
             this._retryTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, RETRY_INTERVAL, () => {
-                log(`UptimeRobot Monitor: Retrying API request (attempt ${this._retryCount} of ${MAX_RETRIES})`);
+                console.log(`UptimeRobot Monitor: Retrying API request (attempt ${this._retryCount} of ${MAX_RETRIES})`);
                 this._checkStatus();
                 return GLib.SOURCE_REMOVE;
             });
         } else {
-            log(`UptimeRobot Monitor: Reached maximum retries (${MAX_RETRIES}). Resuming normal check interval.`);
+            console.log(`UptimeRobot Monitor: Reached maximum retries (${MAX_RETRIES}). Resuming normal check interval.`);
             this._retryCount = 0;
         }
     }
@@ -586,23 +567,19 @@ export default class UptimeRobotExtension extends Extension {
     }
 
     _showNotification(title, message) {
-        try {
-            const source = new MessageTray.Source({
-                title: 'UptimeRobot Monitor',
-                iconName: 'dialog-information-symbolic'
-            });
-            Main.messageTray.add(source);
-            
-            const notification = new MessageTray.Notification({
-                source: source,
-                title: title,
-                body: message,
-                isTransient: false
-            });
-            source.addNotification(notification);
-        } catch (e) {
-            log(`UptimeRobot Monitor: Notification error: ${e}`);
-        }
+        const source = new MessageTray.Source({
+            title: 'UptimeRobot Monitor',
+            iconName: 'dialog-information-symbolic'
+        });
+        Main.messageTray.add(source);
+        
+        const notification = new MessageTray.Notification({
+            source: source,
+            title: title,
+            body: message,
+            isTransient: false
+        });
+        source.addNotification(notification);
     }
 }
 

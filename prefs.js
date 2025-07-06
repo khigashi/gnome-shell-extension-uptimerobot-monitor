@@ -41,15 +41,7 @@ export default class UptimeRobotPreferences extends ExtensionPreferences {
         helpRow.add_suffix(helpIcon);
         
         helpRow.connect('activated', () => {
-            try {
-                Gtk.show_uri(window, 'https://dashboard.uptimerobot.com/integrations', Gtk.get_current_event_time());
-            } catch (e) {
-                try {
-                    GLib.spawn_command_line_async('xdg-open https://dashboard.uptimerobot.com/integrations');
-                } catch (e2) {
-                    console.error('Failed to open URL:', e2);
-                }
-            }
+            Gtk.show_uri(window, 'https://dashboard.uptimerobot.com/integrations', Gtk.get_current_event_time());
         });
         
         group.add(helpRow);
